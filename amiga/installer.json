@@ -5,7 +5,7 @@
   "program": "PengPong",
   "cpu": "68040",
   "fpu": true,
-  "space": 700000,
+  "space": 1500000,
   "modules": [],
   "keep": [],
   "parent": "Work:Games",

@@ -14,7 +14,7 @@ Needs
 - A 68040 or 68060 with an FPU.
 - AmigaOS 3.x with an RTG card or an AGA chipset (GFOS on AmiCradle has
   both).
-- Under 700 KB of disk.
+- About 1.4 MB of disk.
 
 Its own acgame.library is in the drawer's Libs/, so nothing else is
 needed.

@@ -7,7 +7,7 @@
 (set #version "0.3-gfos1")
 (set #drawer "PengPong")
 (set #program "PengPong")
-(set #space 684)  ; KB
+(set #space 1465)  ; KB
 
 (onerror
     (message (cat "PengPong was not installed completely." "\n\n" @error-msg
@@ -47,7 +47,7 @@
 (set #free (if (>= @installer-version 2883584) (getdiskspace #parent "K")
     (/ (getdiskspace #parent) 1024)))
 (if (and (>= #free 0) (< #free #space))
-    (abort (cat "There is not enough room in " #parent ": PengPong needs 1 MB free.")))
+    (abort (cat "There is not enough room in " #parent ": PengPong needs 2 MB free.")))
 
 ; the drawer: everything in it, but what the player has made
 (set #kept "")
