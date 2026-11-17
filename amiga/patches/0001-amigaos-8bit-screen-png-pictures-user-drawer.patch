@@ -1,0 +1,175 @@
+diff --git a/SFont.c b/SFont.c
+index b7e2cbf..cc536c6 100644
+--- a/SFont.c
++++ b/SFont.c
+@@ -178,7 +178,11 @@ void SFont_InternalInput( SDL_Surface *Dest, SFont_FontInfo *Font, int x, int y,
+ 		if ((ch=='\b')&&(strlen(text)>0))
+ 		    text[strlen(text)-1]='\0';
+ 		else if (ch!='\b')
+-		    sprintf(text,"%s%c",text,ch);
++		{   /* not sprintf(text, "%s%c", text, ch): it reads what it writes */
++		    size_t n = strlen(text);
++		    text[n] = (char)ch;
++		    text[n + 1] = '\0';
++		}
+ 	        if (TextWidth2(Font,text)>PixelWidth) text[strlen(text)-1]='\0';
+ 		SDL_BlitSurface( Back, NULL, Dest, &rect);
+ 		PutString2(Dest, Font, x, y, text);
+diff --git a/files.h b/files.h
+index 1680645..acf2dc6 100644
+--- a/files.h
++++ b/files.h
+@@ -1,11 +1,21 @@
++#ifdef __amigaos__
++#include <fstream>
++#include <string.h>
++using namespace std;
++#else
+ #include <fstream.h>
++#endif
+ 
+ #ifdef __WIN32__
+ 	char file_path[50] = "C:\\Program Files\\Pengpong\\";
+ 	char config_file_path[50] = "C:\\Program Files\\Pengpong\\config_file";
+ #endif 
+ 
+-#ifdef __GNUG__
++#ifdef __amigaos__
++	/* the drawer's Data/ and User/ (amiga_start.c makes User/) */
++	char file_path[50] = "PROGDIR:Data/";
++	char config_file_path[50] = "PROGDIR:User/config_file";
++#elif defined __GNUG__
+ 	char file_path[50] = "/usr/local/share/games/pengpong/";
+ 	char config_file_path[50] = "/.pengpong/config_file";
+ 	char config_file_dir[50] = "/.pengpong/";
+@@ -24,7 +34,9 @@ void read_config_file()
+ 	temp_string2 = new char[50];
+ 	temp_config_path = new char[80];
+ 	
+-	#ifdef __GNUG__
++	#ifdef __amigaos__
++	strcpy(temp_config_path, config_file_path);
++	#elif defined __GNUG__
+ 	
+ 	char temp_dir[100];
+ 	char temp_command[50];
+@@ -41,6 +53,11 @@ void read_config_file()
+ 	#endif
+ 	
+ 	a_file.open(temp_config_path);
++#ifdef __amigaos__
++	/* no file yet: eof() would never come */
++	if(!a_file.is_open())
++		return;
++#endif
+ 
+ 	while(!a_file.eof())
+ 	{
+@@ -82,7 +99,9 @@ void write_config_file()
+ 	temp_config_path = new char[80];
+ 	
+ 	
+-	#ifdef __GNUG__
++	#ifdef __amigaos__
++	strcpy(temp_config_path, config_file_path);
++	#elif defined __GNUG__
+ 	sprintf(temp_config_path, "%s%s", getenv("HOME"),
+ 	config_file_path);
+ 	#endif
+@@ -90,7 +109,11 @@ void write_config_file()
+ 	strcpy(temp_config_path, config_file_path);
+ 	#endif
+ 	
++#ifdef __amigaos__
++	b_file.open(temp_config_path, ios::out | ios::trunc);
++#else
+ 	b_file.open(temp_config_path, ios::trunc);
++#endif
+ 	
+ 	sprintf(temp_config_data, "player1_name:%s\n", adam.name);
+ 	b_file<<temp_config_data;
+diff --git a/pengpong.cpp b/pengpong.cpp
+index 92742e6..4828397 100644
+--- a/pengpong.cpp
++++ b/pengpong.cpp
+@@ -69,7 +69,7 @@ void (*commander) (Node*) = &movement;
+ 
+ 	// Image loading function - takes a filename and whether or not
+ 	// the image is transparent and converts it to an SDL_Surface
+-SDL_Surface *LoadImage(char *datafile, int transparent)
++SDL_Surface *LoadImage(const char *datafile, int transparent)
+ {
+         SDL_Surface *image, *surface;
+ 	char datatemp[70];
+@@ -188,7 +188,7 @@ void init_game()
+ {
+ 		
+ 	//Node* head = NULL;
+-	char title[15];
++	char title[32];	/* "Peng-Pong V 0.2" and its end: 16 */
+ 	printf("Initializing the display . . . \n");
+ 	
+ 	if(SDL_Init(SDL_INIT_VIDEO) < 0)
+@@ -197,6 +197,12 @@ void init_game()
+ 		exit(1);
+ 	}
+ 	
++#ifdef __amigaos__
++	/* 8 bits: every picture shares one palette (tools/pengpong8.py),
++	 * set on the screen from the font's */
++	screen = SDL_SetVideoMode(SCR_X, SCR_Y, 8, SDL_HWSURFACE);
++	if(0)
++#endif
+ 	if(!full_screen)
+ 		screen = SDL_SetVideoMode(SCR_X, SCR_Y, 16, SDL_HWSURFACE);
+ 	else
+@@ -206,7 +212,13 @@ void init_game()
+ 	sprintf(title,"Peng-Pong %s",VERSION);
+ 	SDL_WM_SetCaption(title, NULL);
+ 	font=LoadImage("24P_Copperplate_Blue.png", 0);
++#ifdef __amigaos__
++	if(font != NULL && font->format->palette != NULL)
++		SDL_SetColors(screen, font->format->palette->colors, 0, font->format->palette->ncolors);
++	background=LoadImage("logo.png", 0);
++#else
+ 	background=LoadImage("logo.jpg", 0);
++#endif
+ 	
+ 	if(font == NULL)
+ 	{
+@@ -241,7 +253,11 @@ void init_game()
+ 	ball.y = SCR_Y/2;
+ 	ball.rect.x = ball.x;
+ 	ball.rect.y = ball.y;
++#ifdef __amigaos__
++	ball.image = LoadImage("ball.png", 0);
++#else
+ 	ball.image = LoadImage("ball.tga", 0);
++#endif
+ 	ball.rect.w = ball.image->w;
+ 	ball.rect.h = ball.image->h;
+ 		
+@@ -253,7 +269,11 @@ void init_game()
+ 	adam.rect.y = SCR_Y/2;
+ 	adam.my = 0;
+ 	adam.mx = 0;
++#ifdef __amigaos__
++	adam.image = LoadImage("paddle.png", 0);
++#else
+ 	adam.image = LoadImage("paddle.tga", 0);
++#endif
+ 	adam.rect.w = adam.image->w;
+ 	adam.rect.h = adam.image->h;
+ 	adam.points = david.points = number_points; 
+@@ -264,7 +284,11 @@ void init_game()
+ 	david.rect.y = SCR_Y/2;
+ 	david.mx = 0;
+ 	david.my = 0;
++#ifdef __amigaos__
++	david.image = LoadImage("paddle.png", 0);
++#else
+ 	david.image = LoadImage("paddle.tga", 0);
++#endif
+ 	david.rect.w = adam.image->w;
+ 	david.rect.h = adam.image->h;	
+ 	
