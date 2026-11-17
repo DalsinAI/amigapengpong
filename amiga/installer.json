@@ -1,0 +1,14 @@
+{
+  "name": "PengPong",
+  "version": "0.3-gfos1",
+  "drawer": "PengPong",
+  "program": "PengPong",
+  "cpu": "68040",
+  "fpu": true,
+  "space": 1500000,
+  "modules": [],
+  "keep": [],
+  "parent": "Work:Games",
+  "badge": "icons/art/pengpong.png",
+  "script": "Install-PengPong"
+}

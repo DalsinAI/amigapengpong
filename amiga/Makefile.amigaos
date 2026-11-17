@@ -1,0 +1,92 @@
+# Peng-Pong 0.3 for GFOS (AmigaOS 3.2 with GFOpenUp) and any AmigaOS 3.x,
+# 68040 + FPU, on acsdl12 (SDL 1.2 on ACGame: 8-bit AGA and RTG screens,
+# keyboard and mouse) and acgame.library.
+#
+#   make -f amiga/Makefile.amigaos PENGPONG=/path/to/pengpong ACSDL=... \
+#        ACSDLLIB=... ACGAME=... ACGAMELIB=... [STOVE=...]
+#
+# PENGPONG is upstream's sources from the tarball package/pengpong.lock
+# names, with amiga/patches applied; ACSDL is amicradle-guest's
+# gameports/acsdl12 and ACSDLLIB its build made with ACG= (without ACGame's
+# own sources: the game gets ACGame from acgame.library); ACGAME is
+# DalsinAI/acgame and ACGAMELIB its build (libacgame.a, the stubs that open
+# PROGDIR:Libs/acgame.library, then LIBS:acgame.library, and the library
+# itself). package/build-amiga.sh fetches and builds them all.
+#
+# 800 x 600 in 256 colours (amiga/data, made by tools/pengpong8.py).
+#
+# Output: build/amigaos/PengPong/ (the drawer: PengPong, Data/,
+# Libs/acgame.library, ReadMe, the licences, with GlowIcons),
+# build/amigaos/PengPong.info and Install-PengPong beside them.
+
+PENGPONG ?= ../pengpong
+STOVE   ?= $(HOME)/AmiCradle/kitchen/stoves/os32-gcc16-open6
+PREFIX  ?= $(STOVE)/prefix
+ACSDL   ?= ../amicradle-guest/gameports/acsdl12
+ACSDLLIB ?= $(ACSDL)/build/amigaos
+ACGAME  ?= ../acgame
+ACGAMELIB ?= $(ACGAME)/build-amiga
+CC      = $(PREFIX)/bin/m68k-amigaos-gcc
+CXX     = $(PREFIX)/bin/m68k-amigaos-g++
+STRIP   = $(PREFIX)/bin/m68k-amigaos-strip
+CPU     ?= -m68040 -m68881
+# -fno-tree-loop-distribute-patterns: GCC 16's loop miscompile
+OPT     ?= -O2 -fomit-frame-pointer -fno-tree-loop-distribute-patterns
+NOIX    ?= -noixemul
+DEFS    = -D__amigaos__
+INC     = -I$(ACSDL)/include/SDL -I$(ACGAME)/include
+CFLAGS  = $(NOIX) $(OPT) $(CPU) -Wall
+# upstream is 2001 C++ with C strings; its own warnings are left as they are
+GAMEFLAGS = $(DEFS) -std=gnu++98 -fno-exceptions -fno-rtti -Wno-write-strings -Wno-unused-variable \
+          -Wno-unused-but-set-variable -Wno-misleading-indentation -Wno-format-overflow -Wno-parentheses -Wno-sign-compare
+LDFLAGS = $(NOIX) $(CPU)
+LIBS    ?= $(ACSDLLIB)/libacsdl12.a $(ACGAMELIB)/libacgame.a -lpthread -latomic -lm
+
+BUILD   = build/amigaos
+OBJDIR  = $(BUILD)/obj
+OUT     = $(BUILD)/PengPong
+PROG    = PengPong
+OBJS    = $(OBJDIR)/pengpong.o $(OBJDIR)/link2.o $(OBJDIR)/SFont.o $(OBJDIR)/amiga_start.o
+
+all: $(OUT)/$(PROG) package
+
+$(BUILD)/$(PROG).debug: $(OBJS)
+	@mkdir -p $(BUILD)
+	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
+
+$(OUT)/$(PROG): $(BUILD)/$(PROG).debug
+	@mkdir -p $(OUT)
+	$(STRIP) -o $@ $<
+
+package: $(OUT)/$(PROG) AMIGA_PORT.md amiga/Licences.txt
+	rm -rf $(OUT)/Data $(OUT)/Libs
+	mkdir -p $(OUT)/Data $(OUT)/Libs
+	cp amiga/data/*.png $(OUT)/Data/
+	cp $(ACGAMELIB)/acgame.library $(OUT)/Libs/
+	cp AMIGA_PORT.md $(OUT)/ReadMe
+	cp $(PENGPONG)/README $(OUT)/README-PengPong.txt
+	cp amiga/Licences.txt $(OUT)/Licences.txt
+	cp amiga/icons/PengPong.info amiga/icons/ReadMe.info $(OUT)/
+	for f in README-PengPong.txt Licences.txt; do \
+	    cp amiga/icons/ReadMe.info $(OUT)/$$f.info; done
+	cp amiga/icons/Data.info $(OUT)/Data.info
+	cp amiga/icons/PengPong-drawer.info $(BUILD)/PengPong.info
+	cp amiga/Install-PengPong amiga/Install-PengPong.info $(BUILD)/
+
+$(OBJDIR)/%.o: $(PENGPONG)/%.cpp $(wildcard $(PENGPONG)/*.h)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CFLAGS) $(GAMEFLAGS) $(INC) -c -o $@ $<
+
+# SFont.c is C++ too (upstream builds it with g++)
+$(OBJDIR)/SFont.o: $(PENGPONG)/SFont.c $(PENGPONG)/SFont.h
+	@mkdir -p $(dir $@)
+	$(CXX) -x c++ $(CFLAGS) $(GAMEFLAGS) $(INC) -c -o $@ $<
+
+$(OBJDIR)/amiga_start.o: amiga/amiga_start.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+clean:
+	rm -rf $(BUILD)
+
+.PHONY: all package clean
